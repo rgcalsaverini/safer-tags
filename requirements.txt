@@ -1,0 +1,4 @@
+Flask
+Mongoengine
+Redis
+Flask-CORS
