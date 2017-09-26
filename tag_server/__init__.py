@@ -65,7 +65,7 @@ def create_redis_connection(app=None):
         app.logger.info('Instantiated new redis connection.')
 
     redis_connection = redis.StrictRedis(
-        host="redis",
+        host="localhost",
         port=6379,
         db=0
     )
