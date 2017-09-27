@@ -43,6 +43,7 @@ def route_to_app(app, redis):
 
     urls.append(register_endpoint(app, '/tag/pageview/<string:store_id>/<string:pagetype>', collectors.pageview))
     urls.append(register_endpoint(app, '/tag/add-to-cart/<string:store_id>', collectors.add_to_cart))
+    urls.append(register_endpoint(app, '/tag/remove-from-cart/<string:store_id>', collectors.remove_from_cart))
     urls.append(register_endpoint(app, '/tag/purchase/<string:store_id>/<string:tr_id>/<int:total>', collectors.purchase))
     urls.append(register_endpoint(app, '/tag/get-affiliates/<string:store_id>', affiliates.get_affiliates))
     urls.append(register_endpoint(app, '/api/remarketing', api.get_remarketing, ['GET']))

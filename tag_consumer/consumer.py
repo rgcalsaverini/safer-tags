@@ -36,6 +36,9 @@ def get_next_tag():
     if data['tag_type'] == 'add_to_cart':
         process_add_to_cart(data)
 
+    if data['tag_type'] == 'remove_from_cart':
+        process_remove_from_cart(data)
+
     if data['tag_type'] == 'purchase':
         process_purchase(data)
 
@@ -50,6 +53,9 @@ def create_and_get_remarketing(user_id, store_id):
         remarketing.user_id = user_id
         remarketing.store_id = store_id
         remarketing.total_purchased = 0
+        remarketing.num_carted = 0
+        remarketing.num_purchased = 0
+        remarketing.num_seen = 0
         remarketing.save()
     return remarketing
 
@@ -84,6 +90,7 @@ def process_pageview(data):
 
     if data['pagetype'] == 'product':
         for product in data['products']:
+            remarketing.num_seen += 1
             if 'sku' in product.keys() and product['sku'] not in seen_skus:
                 remarketing.products_seen[product['sku']] = product
                 remarketing.products_seen[product['sku']]['times'] = 1
@@ -99,6 +106,7 @@ def process_add_to_cart(data):
     rmkt_skus = remarketing.products_carted.keys()
 
     for product in data['products']:
+        remarketing.num_carted += 1
         if 'sku' in product.keys():
             if product['sku'] not in rmkt_skus:
                 remarketing.products_carted[product['sku']] = product
@@ -113,6 +121,15 @@ def process_add_to_cart(data):
     cart.save()
 
 
+def process_remove_from_cart(data):
+    cart = create_and_get_cart(data['user_id'], data['store_id'])
+
+    for product in data['products']:
+        if 'sku' in product.keys():
+            cart.update(pull__cart__sku=product['sku'])
+    cart.save()
+
+
 def process_purchase(data):
     remarketing = create_and_get_remarketing(data['user_id'], data['store_id'])
     cart = create_and_get_cart(data['user_id'], data['store_id'])
@@ -120,6 +137,7 @@ def process_purchase(data):
     rmkt_skus = remarketing.products_purchased.keys()
 
     for product in data['products']:
+        remarketing.num_purchased += 1
         if 'sku' in product.keys() and product['sku'] not in rmkt_skus:
             remarketing.products_purchased[product['sku']] = product
             remarketing.products_purchased[product['sku']]['times'] = 1

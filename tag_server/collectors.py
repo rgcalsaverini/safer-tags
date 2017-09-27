@@ -2,7 +2,6 @@ import json
 from time import time
 
 from flask import session, request
-from redis.lock import Lock as RedisLock
 
 from tag_server import gen_error
 
@@ -29,23 +28,15 @@ def generic_data(store_id, tag_type):
     }
 
 
-def enqueue_tag(payload, redis_connection, enqueue_lock):
+def enqueue_tag(payload, redis_connection):
     """
     Enqueue the tag to be processed later, as to not delay user response.
-    Obviously, this locking solution is a major bottleneck, and a hindrance to
-    scalability. It servers the example, but should be replaced by a more robust
-    solution on a real server.
 
     :param payload: The data payload for the tag
     :param redis_connection:
-    :param enqueue_lock:
     :return:
     """
-    enqueue_lock.acquire()
-    last_idx = int(redis_connection.get('last_queue_idx'))
-    redis_connection.incr('last_queue_idx')
-    enqueue_lock.release()
-
+    last_idx = int(redis_connection.incr('last_queue_idx'))
     redis_connection.rpush('tag_queue', last_idx)
     redis_connection.set('tag_data[{}]'.format(last_idx), json.dumps(payload))
 
@@ -87,7 +78,6 @@ def get_collectors(redis_ref, app_ref):
     """
     redis = redis_ref
     app = app_ref
-    enqueue_lock = RedisLock(redis_ref, 'enqueue_lock')
 
     class CollectorsFactory(object):
         @staticmethod
@@ -105,7 +95,7 @@ def get_collectors(redis_ref, app_ref):
             pageview_data = generic_data(store_id, 'pageview')
             pageview_data['pagetype'] = pagetype
 
-            enqueue_tag(pageview_data, redis, enqueue_lock)
+            enqueue_tag(pageview_data, redis)
 
             return '', 204
 
@@ -119,7 +109,21 @@ def get_collectors(redis_ref, app_ref):
             """
 
             event_data = generic_data(store_id, 'add_to_cart')
-            enqueue_tag(event_data, redis, enqueue_lock)
+            enqueue_tag(event_data, redis)
+
+            return '', 204
+
+        @staticmethod
+        def remove_from_cart(store_id):
+            """
+            Collects a 'remove from cart' event tag
+
+            :param store_id: And arbitrary ID identifying the store
+            :return: An empty HTTP response (204, no content)
+            """
+
+            event_data = generic_data(store_id, 'remove_from_cart')
+            enqueue_tag(event_data, redis)
 
             return '', 204
 
@@ -137,11 +141,8 @@ def get_collectors(redis_ref, app_ref):
             event_data = generic_data(store_id, 'purchase')
             event_data['total'] = float(total) / 100
             event_data['transaction_id'] = tr_id
-            enqueue_tag(event_data, redis, enqueue_lock)
+            enqueue_tag(event_data, redis)
 
             return '', 204
 
     return CollectorsFactory
-
-
-"https://www.fastshop.com.br/loja/liquidificador-oster-classico-03-velocidades-prata-004655-fast"
